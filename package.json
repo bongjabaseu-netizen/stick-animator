@@ -1,0 +1,9 @@
+{
+  "name": "stick-animator",
+  "version": "1.0.0",
+  "description": "졸라맨 스타일 캐릭터 애니메이터 - 10종 캐릭터, 10가지 애니메이션",
+  "scripts": {
+    "start": "npx serve .",
+    "dev": "npx serve . -p 3457"
+  }
+}
