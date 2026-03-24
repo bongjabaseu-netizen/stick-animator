@@ -2,892 +2,1143 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>졸라맨 애니메이터 — 캐릭터 10종</title>
+<title>졸라맨 캐릭터 엔진 v2</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #111827; color: #e5e7eb; display: flex; height: 100vh; overflow: hidden; }
 
-  .header {
-    text-align: center; padding: 20px; background: #16213e;
-    border-bottom: 2px solid #0f3460;
+  /* ── 왼쪽: 미리보기 ── */
+  .preview {
+    flex: 0 0 50%; display: flex; flex-direction: column;
+    background: #0f172a; border-right: 2px solid #1e293b;
   }
-  .header h1 { font-size: 24px; }
-  .header p { font-size: 13px; color: #888; margin-top: 4px; }
+  .preview-header {
+    padding: 12px 20px; background: #1e293b;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .preview-header h1 { font-size: 18px; }
+  .preview-header .badge { font-size: 11px; background: #6366f1; padding: 3px 10px; border-radius: 20px; }
+  .canvas-wrap {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  #mainCanvas { max-width: 100%; max-height: 100%; }
+  .bg-selector {
+    position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 6px;
+  }
+  .bg-btn {
+    width: 28px; height: 28px; border-radius: 50%; border: 2px solid #333;
+    cursor: pointer; transition: border-color 0.2s;
+  }
+  .bg-btn:hover, .bg-btn.active { border-color: #6366f1; }
 
-  .grid {
-    display: grid; grid-template-columns: repeat(5, 1fr);
-    gap: 16px; padding: 20px; max-width: 1400px; margin: 0 auto;
+  /* 애니메이션 바 */
+  .anim-bar {
+    padding: 10px; background: #1e293b; display: flex; gap: 6px;
+    overflow-x: auto; flex-wrap: wrap; justify-content: center;
   }
+  .anim-btn {
+    padding: 5px 12px; border: 1px solid #374151; border-radius: 6px;
+    background: transparent; color: #9ca3af; cursor: pointer; font-size: 12px;
+    transition: all 0.2s; white-space: nowrap;
+  }
+  .anim-btn:hover { border-color: #6366f1; color: #c7d2fe; }
+  .anim-btn.active { background: #6366f1; border-color: #6366f1; color: white; }
 
-  .char-card {
-    background: #16213e; border-radius: 12px; padding: 16px;
-    text-align: center; border: 2px solid transparent;
-    cursor: pointer; transition: all 0.3s;
+  /* JSON 출력 */
+  .json-bar {
+    padding: 8px 12px; background: #0c0f1a; font-family: monospace;
+    font-size: 10px; color: #6366f1; overflow-x: auto; white-space: nowrap;
+    cursor: pointer; border-top: 1px solid #1e293b;
   }
-  .char-card:hover { border-color: #6c5ce7; transform: translateY(-4px); }
-  .char-card.active { border-color: #e94560; }
-  .char-card canvas { width: 100%; height: 200px; }
-  .char-card h3 { font-size: 14px; margin-top: 8px; }
-  .char-card p { font-size: 11px; color: #888; }
+  .json-bar:hover { color: #a5b4fc; }
 
-  .controls {
-    display: flex; gap: 8px; justify-content: center;
-    padding: 16px; flex-wrap: wrap;
+  /* ── 오른쪽: 옵션 ── */
+  .options {
+    flex: 0 0 50%; overflow-y: auto; padding: 0;
+    background: #111827;
   }
-  .controls button {
-    padding: 8px 16px; border: none; border-radius: 8px;
-    background: #0f3460; color: #e0e0e0; cursor: pointer;
-    font-size: 13px; transition: all 0.2s;
+  .opt-section {
+    border-bottom: 1px solid #1e293b;
   }
-  .controls button:hover { background: #6c5ce7; color: white; }
-  .controls button.active { background: #e94560; color: white; }
+  .opt-header {
+    padding: 10px 16px; background: #1e293b; font-size: 13px;
+    font-weight: 700; cursor: pointer; display: flex;
+    align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 1;
+  }
+  .opt-header:hover { background: #263145; }
+  .opt-header .arrow { transition: transform 0.2s; }
+  .opt-header.closed .arrow { transform: rotate(-90deg); }
+  .opt-body { padding: 10px 16px; }
+  .opt-body.hidden { display: none; }
 
-  .stage {
-    background: #0d0d2b; border-radius: 12px; margin: 20px auto;
-    max-width: 800px; height: 400px; position: relative; overflow: hidden;
-    border: 2px solid #333;
+  /* 옵션 그리드 */
+  .opt-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
   }
-  .stage canvas { width: 100%; height: 100%; }
+  .opt-item {
+    padding: 8px 4px; border: 2px solid #1e293b; border-radius: 8px;
+    text-align: center; cursor: pointer; transition: all 0.2s;
+    font-size: 11px; background: #0f172a;
+  }
+  .opt-item:hover { border-color: #4f46e5; background: #1e1b4b; }
+  .opt-item.active { border-color: #6366f1; background: #312e81; }
+  .opt-item .icon { font-size: 22px; display: block; margin-bottom: 2px; }
+  .opt-item .label { color: #9ca3af; }
 
-  .expression-controls {
-    display: flex; gap: 6px; justify-content: center;
-    padding: 10px; flex-wrap: wrap;
+  /* 색상 선택 */
+  .color-grid {
+    display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px;
   }
-  .expression-controls button {
-    padding: 6px 12px; border: 1px solid #444; border-radius: 6px;
-    background: #16213e; color: #ccc; cursor: pointer; font-size: 12px;
+  .color-swatch {
+    width: 100%; aspect-ratio: 1; border-radius: 8px; cursor: pointer;
+    border: 2px solid transparent; transition: all 0.2s;
   }
-  .expression-controls button:hover { background: #6c5ce7; border-color: #6c5ce7; color: white; }
+  .color-swatch:hover { transform: scale(1.15); }
+  .color-swatch.active { border-color: white; box-shadow: 0 0 8px #6366f1; }
+
+  /* 슬라이더 */
+  .slider-row {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+  }
+  .slider-row label { font-size: 12px; min-width: 70px; color: #9ca3af; }
+  .slider-row input[type="range"] {
+    flex: 1; accent-color: #6366f1; height: 4px;
+  }
+  .slider-row .val { font-size: 12px; min-width: 30px; text-align: right; color: #6366f1; }
+
+  /* 내보내기 버튼 */
+  .export-bar {
+    padding: 10px 16px; background: #1e293b; display: flex; gap: 8px;
+    position: sticky; bottom: 0; border-top: 1px solid #374151;
+  }
+  .export-btn {
+    flex: 1; padding: 10px; border: none; border-radius: 8px;
+    font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  }
+  .export-btn.primary { background: #6366f1; color: white; }
+  .export-btn.primary:hover { background: #4f46e5; }
+  .export-btn.secondary { background: #374151; color: #e5e7eb; }
+  .export-btn.secondary:hover { background: #4b5563; }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <h1>🎭 졸라맨 애니메이터</h1>
-  <p>10종 캐릭터 × 10가지 표정 × 10가지 애니메이션</p>
+<!-- ═══ 왼쪽: 미리보기 ═══ -->
+<div class="preview">
+  <div class="preview-header">
+    <h1>🎭 졸라맨 엔진</h1>
+    <span class="badge">v2.0</span>
+  </div>
+  <div class="canvas-wrap">
+    <canvas id="mainCanvas" width="600" height="600"></canvas>
+    <div class="bg-selector" id="bgSelector"></div>
+  </div>
+  <div class="anim-bar" id="animBar"></div>
+  <div class="json-bar" id="jsonBar" onclick="copyJSON()" title="클릭하면 JSON 복사">{ ... }</div>
 </div>
 
-<!-- 캐릭터 10종 그리드 -->
-<div class="grid" id="charGrid"></div>
-
-<!-- 애니메이션 컨트롤 -->
-<div class="controls" id="animControls">
-  <button onclick="setAnim('idle')" class="active">🧍 가만히</button>
-  <button onclick="setAnim('walk')">🚶 걷기</button>
-  <button onclick="setAnim('run')">🏃 달리기</button>
-  <button onclick="setAnim('wave')">👋 손흔들기</button>
-  <button onclick="setAnim('jump')">⬆ 점프</button>
-  <button onclick="setAnim('nod')">😊 끄덕</button>
-  <button onclick="setAnim('shake')">😤 도리도리</button>
-  <button onclick="setAnim('talk')">💬 말하기</button>
-  <button onclick="setAnim('dance')">💃 춤추기</button>
-  <button onclick="setAnim('sit')">🪑 앉기</button>
-</div>
-
-<!-- 메인 스테이지 -->
-<div class="stage">
-  <canvas id="stageCanvas" width="800" height="400"></canvas>
-</div>
-
-<!-- 표정 컨트롤 -->
-<div class="expression-controls">
-  <button onclick="setExpr('normal')">😐 기본</button>
-  <button onclick="setExpr('happy')">😊 행복</button>
-  <button onclick="setExpr('sad')">😢 슬픔</button>
-  <button onclick="setExpr('angry')">😠 화남</button>
-  <button onclick="setExpr('surprised')">😲 놀람</button>
-  <button onclick="setExpr('wink')">😉 윙크</button>
-  <button onclick="setExpr('sleep')">😴 수면</button>
-</div>
+<!-- ═══ 오른쪽: 옵션 ═══ -->
+<div class="options" id="optionsPanel"></div>
 
 <script>
 // ═══════════════════════════════════════════════
-// 졸라맨 렌더링 엔진
+// 데이터 정의
 // ═══════════════════════════════════════════════
 
-const CHARS = [
-  {
-    id: 'basic', name: '기본이', desc: '기본 졸라맨', accent: '#888',
-    headFill: '#f0f0e8', hairType: 'cap', hairFill: '#666',
-    eyeType: 'oval', bodyW: 8, hasNoseLines: true,
-  },
-  {
-    id: 'girl', name: '소녀', desc: '긴 머리 여자', accent: '#ff6b8a',
-    headFill: '#fff5ee', hairType: 'long', hairFill: '#4a3728',
-    eyeType: 'round', bodyW: 8, hasBlush: true, hasRibbon: true,
-    bodyStyle: 'dress', dressColor: '#ff6b8a',
-  },
-  {
-    id: 'nerd', name: '안경이', desc: '안경 쓴 똑똑이', accent: '#3498db',
-    headFill: '#f5f0dc', hairType: 'spiky', hairFill: '#333',
-    eyeType: 'glasses', bodyW: 10, hasBook: true,
-  },
-  {
-    id: 'hat', name: '모자', desc: '모자 쓴 캐릭터', accent: '#fdcb6e',
-    headFill: '#ffeaa7', hairType: 'none', eyeType: 'dot',
-    bodyW: 10, hasTopHat: true, mouthType: 'grin',
-  },
-  {
-    id: 'muscle', name: '근육이', desc: '강한 근육맨', accent: '#e17055',
-    headFill: '#ffdab9', hairType: 'crew', hairFill: '#8B4513',
-    eyeType: 'angry', bodyW: 18, armW: 10, legW: 8, mouthType: 'teeth',
-  },
-  {
-    id: 'kid', name: '꼬마', desc: '작고 귀여운 아이', accent: '#55efc4',
-    headFill: '#fff5ee', hairType: 'bowl', hairFill: '#222',
-    eyeType: 'big', bodyW: 8, headR: 55, bodyH: 35, legLen: 30,
-    armLen: 25, hasBlush: true, mouthType: 'o', scale: 0.8,
-  },
-  {
-    id: 'grandpa', name: '할배', desc: '지팡이 짚은 할아버지', accent: '#b2bec3',
-    headFill: '#f5e6ca', hairType: 'bald-side', hairFill: '#ccc',
-    eyeType: 'squint', bodyW: 8, hasCane: true, mouthType: 'frown',
-    hasWrinkles: true,
-  },
-  {
-    id: 'chef', name: '요리사', desc: '셰프 모자 쓴 요리사', accent: '#fff',
-    headFill: '#fff0e0', hairType: 'none', eyeType: 'happy',
-    bodyW: 14, hasChefHat: true, hasMustache: true, mouthType: 'smile-wide',
-  },
-  {
-    id: 'ninja', name: '닌자', desc: '마스크 쓴 닌자', accent: '#e74c3c',
-    headFill: '#2d3436', hairType: 'none', eyeType: 'slit',
-    bodyW: 10, bodyColor: '#2d3436', armColor: '#2d3436', legColor: '#2d3436',
-    hasMask: true, hasSword: true, maskBand: '#e74c3c',
-  },
-  {
-    id: 'robot', name: '로봇', desc: '귀여운 로봇', accent: '#00ff88',
-    headFill: '#b8c6d4', hairType: 'antenna', headShape: 'roundRect',
-    eyeType: 'screen', bodyW: 40, bodyStyle: 'box', bodyFill: '#8e9eab',
-    armW: 8, legW: 8, mouthType: 'led',
-  },
+const DATA = {
+  bodyType: [
+    { id: 'thin', icon: '🧍', label: '마른' },
+    { id: 'normal', icon: '🧑', label: '보통' },
+    { id: 'chubby', icon: '🍔', label: '뚱뚱' },
+    { id: 'muscle', icon: '💪', label: '근육' },
+    { id: 'kid', icon: '👶', label: '꼬마' },
+    { id: 'tall', icon: '📏', label: '키큰' },
+  ],
+  hair: [
+    { id: 'none', icon: '🔵', label: '없음' },
+    { id: 'cap', icon: '🧢', label: '반원캡' },
+    { id: 'short', icon: '✂️', label: '짧은머리' },
+    { id: 'long', icon: '💇‍♀️', label: '긴머리' },
+    { id: 'spiky', icon: '⚡', label: '삐죽' },
+    { id: 'bowl', icon: '🍜', label: '바가지' },
+    { id: 'curly', icon: '🌀', label: '곱슬' },
+    { id: 'ponytail', icon: '🎀', label: '포니테일' },
+    { id: 'mohawk', icon: '🦅', label: '모히칸' },
+    { id: 'bald-side', icon: '👴', label: '옆머리만' },
+    { id: 'twintail', icon: '🎗️', label: '트윈테일' },
+    { id: 'afro', icon: '🌳', label: '아프로' },
+  ],
+  hat: [
+    { id: 'none', icon: '❌', label: '없음' },
+    { id: 'cap', icon: '🧢', label: '야구모자' },
+    { id: 'tophat', icon: '🎩', label: '탑햇' },
+    { id: 'chef', icon: '👨‍🍳', label: '셰프' },
+    { id: 'crown', icon: '👑', label: '왕관' },
+    { id: 'helmet', icon: '⛑️', label: '헬멧' },
+    { id: 'beret', icon: '🫕', label: '베레모' },
+    { id: 'santa', icon: '🎅', label: '산타' },
+    { id: 'wizard', icon: '🧙', label: '마법사' },
+    { id: 'ribbon', icon: '🎀', label: '리본' },
+    { id: 'headband', icon: '🥋', label: '머리띠' },
+    { id: 'halo', icon: '😇', label: '천사링' },
+  ],
+  expression: [
+    { id: 'normal', icon: '😐', label: '기본' },
+    { id: 'happy', icon: '😊', label: '행복' },
+    { id: 'sad', icon: '😢', label: '슬픔' },
+    { id: 'angry', icon: '😠', label: '화남' },
+    { id: 'surprised', icon: '😲', label: '놀람' },
+    { id: 'wink', icon: '😉', label: '윙크' },
+    { id: 'sleep', icon: '😴', label: '수면' },
+    { id: 'cry', icon: '😭', label: '울음' },
+    { id: 'love', icon: '😍', label: '사랑' },
+    { id: 'cool', icon: '😎', label: '쿨' },
+    { id: 'dizzy', icon: '😵', label: '어지러움' },
+    { id: 'thinking', icon: '🤔', label: '생각' },
+  ],
+  top: [
+    { id: 'none', icon: '➖', label: '없음(선)' },
+    { id: 'tshirt', icon: '👕', label: '티셔츠' },
+    { id: 'suit', icon: '🤵', label: '정장' },
+    { id: 'hoodie', icon: '🧥', label: '후드' },
+    { id: 'dress', icon: '👗', label: '원피스' },
+    { id: 'armor', icon: '🛡️', label: '갑옷' },
+    { id: 'sailor', icon: '⚓', label: '세일러' },
+    { id: 'lab', icon: '🥼', label: '가운' },
+    { id: 'vest', icon: '🦺', label: '조끼' },
+    { id: 'kimono', icon: '🎎', label: '한복/기모노' },
+  ],
+  bottom: [
+    { id: 'none', icon: '➖', label: '없음(선)' },
+    { id: 'pants', icon: '👖', label: '바지' },
+    { id: 'shorts', icon: '🩳', label: '반바지' },
+    { id: 'skirt', icon: '💃', label: '치마' },
+    { id: 'wide', icon: '🧘', label: '와이드' },
+  ],
+  accessory: [
+    { id: 'none', icon: '❌', label: '없음' },
+    { id: 'glasses', icon: '👓', label: '안경' },
+    { id: 'sunglasses', icon: '🕶️', label: '선글라스' },
+    { id: 'bag', icon: '🎒', label: '가방' },
+    { id: 'sword', icon: '⚔️', label: '검' },
+    { id: 'shield', icon: '🛡️', label: '방패' },
+    { id: 'book', icon: '📖', label: '책' },
+    { id: 'wand', icon: '🪄', label: '지팡이' },
+    { id: 'guitar', icon: '🎸', label: '기타' },
+    { id: 'mic', icon: '🎤', label: '마이크' },
+    { id: 'balloon', icon: '🎈', label: '풍선' },
+    { id: 'umbrella', icon: '☂️', label: '우산' },
+    { id: 'cane', icon: '🦯', label: '지팡이' },
+    { id: 'phone', icon: '📱', label: '폰' },
+    { id: 'flag', icon: '🚩', label: '깃발' },
+    { id: 'flower', icon: '🌸', label: '꽃' },
+  ],
+  face: [
+    { id: 'none', icon: '😶', label: '없음' },
+    { id: 'mustache', icon: '🥸', label: '콧수염' },
+    { id: 'beard', icon: '🧔', label: '턱수염' },
+    { id: 'blush', icon: '☺️', label: '볼터치' },
+    { id: 'freckles', icon: '🔵', label: '주근깨' },
+    { id: 'scar', icon: '⚡', label: '흉터' },
+    { id: 'mask', icon: '😷', label: '마스크' },
+    { id: 'bandaid', icon: '🩹', label: '반창고' },
+  ],
+};
+
+const COLORS = {
+  skin: ['#ffeaa7','#fff5ee','#ffdab9','#f5e6ca','#deb887','#c68642','#8d5524','#4a2c0a'],
+  hair: ['#222','#4a3728','#8B4513','#d4a574','#e8c170','#c0392b','#2980b9','#8e44ad','#27ae60','#ecf0f1','#95a5a6','#e74c3c'],
+  outfit: ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#e84393','#222','#ecf0f1','#95a5a6','#6c5ce7','#fd79a8','#00cec9','#fdcb6e','#2d3436'],
+};
+
+const BACKGROUNDS = [
+  { id: 'dark', color: '#0f172a' },
+  { id: 'light', color: '#f1f5f9' },
+  { id: 'green', color: '#064e3b' },
+  { id: 'blue', color: '#1e3a5f' },
+  { id: 'sunset', color: '#7c2d12' },
+  { id: 'purple', color: '#2e1065' },
+  { id: 'gray', color: '#6b7280' },
+  { id: 'white', color: '#ffffff' },
 ];
 
+const ANIMS = [
+  { id: 'idle', label: '🧍 가만히' },
+  { id: 'walk', label: '🚶 걷기' },
+  { id: 'run', label: '🏃 달리기' },
+  { id: 'wave', label: '👋 손흔들기' },
+  { id: 'jump', label: '⬆ 점프' },
+  { id: 'nod', label: '😊 끄덕' },
+  { id: 'shake', label: '😤 도리도리' },
+  { id: 'talk', label: '💬 말하기' },
+  { id: 'dance', label: '💃 춤추기' },
+  { id: 'sit', label: '🪑 앉기' },
+  { id: 'think', label: '🤔 생각' },
+  { id: 'clap', label: '👏 박수' },
+  { id: 'kick', label: '🦵 발차기' },
+  { id: 'bow', label: '🙇 인사' },
+  { id: 'spin', label: '🔄 회전' },
+];
+
+// ═══════════════════════════════════════════════
 // 현재 상태
-let selectedChar = CHARS[0];
-let currentAnim = 'idle';
-let currentExpr = 'normal';
-let animFrame = 0;
+// ═══════════════════════════════════════════════
+const state = {
+  bodyType: 'normal',
+  hair: 'cap',
+  hairColor: '#666',
+  hat: 'none',
+  hatColor: '#2d3436',
+  expression: 'normal',
+  top: 'none',
+  topColor: '#3498db',
+  bottom: 'none',
+  bottomColor: '#2d3436',
+  accessory: 'none',
+  face: 'none',
+  skinColor: '#f0f0e8',
+  outlineColor: '#222',
+  bgColor: '#0f172a',
+  anim: 'idle',
+  scale: 1.0,
+  headSize: 1.0,
+};
+
 let animTime = 0;
 
 // ═══════════════════════════════════════════════
-// 캐릭터 그리기 함수
+// UI 생성
 // ═══════════════════════════════════════════════
-function drawCharacter(ctx, char, x, y, scale = 1, animState = {}) {
-  const s = scale;
-  const headR = (char.headR || 50) * s;
-  const bodyW = (char.bodyW || 8) * s;
-  const bodyH = (char.bodyH || 60) * s;
-  const armLen = (char.armLen || 40) * s;
-  const legLen = (char.legLen || 50) * s;
-  const armW = (char.armW || 6) * s;
-  const legW = (char.legW || 6) * s;
-  const spread = 20 * s;
-  const bc = char.bodyColor || '#222';
-  const ac = char.armColor || '#222';
-  const lc = char.legColor || '#222';
+function buildOptions() {
+  const panel = document.getElementById('optionsPanel');
+  const sections = [
+    { key: 'bodyType', title: '🏋️ 체형', type: 'grid' },
+    { key: 'skinColor', title: '🎨 피부색', type: 'colors', palette: 'skin' },
+    { key: 'hair', title: '💇 머리카락', type: 'grid' },
+    { key: 'hairColor', title: '🎨 머리 색상', type: 'colors', palette: 'hair' },
+    { key: 'hat', title: '🎩 모자/머리장식', type: 'grid' },
+    { key: 'expression', title: '😊 표정', type: 'grid' },
+    { key: 'face', title: '🥸 얼굴 장식', type: 'grid' },
+    { key: 'top', title: '👕 상의', type: 'grid' },
+    { key: 'topColor', title: '🎨 상의 색상', type: 'colors', palette: 'outfit' },
+    { key: 'bottom', title: '👖 하의', type: 'grid' },
+    { key: 'bottomColor', title: '🎨 하의 색상', type: 'colors', palette: 'outfit' },
+    { key: 'accessory', title: '🎒 악세서리', type: 'grid' },
+    { key: 'sliders', title: '⚙️ 세부 조정', type: 'sliders' },
+  ];
 
-  // 애니메이션 오프셋
-  const t = animState.t || 0;
-  const anim = animState.anim || 'idle';
+  let html = '';
+  sections.forEach(sec => {
+    html += `<div class="opt-section">
+      <div class="opt-header" onclick="toggleSection(this)">
+        ${sec.title} <span class="arrow">▼</span>
+      </div>
+      <div class="opt-body" id="sec_${sec.key}">`;
 
-  let headOffY = 0, bodyTilt = 0;
-  let lArmAngle = 0, rArmAngle = 0;
-  let lLegAngle = 0, rLegAngle = 0;
-  let bounceY = 0, talkMouth = 0;
+    if (sec.type === 'grid' && DATA[sec.key]) {
+      html += `<div class="opt-grid">`;
+      DATA[sec.key].forEach(item => {
+        const active = state[sec.key] === item.id ? 'active' : '';
+        html += `<div class="opt-item ${active}" data-key="${sec.key}" data-val="${item.id}" onclick="selectOpt(this,'${sec.key}','${item.id}')">
+          <span class="icon">${item.icon}</span>
+          <span class="label">${item.label}</span>
+        </div>`;
+      });
+      html += `</div>`;
+    } else if (sec.type === 'colors') {
+      html += `<div class="color-grid">`;
+      COLORS[sec.palette].forEach(c => {
+        const active = state[sec.key] === c ? 'active' : '';
+        html += `<div class="color-swatch ${active}" style="background:${c}" data-key="${sec.key}" data-val="${c}" onclick="selectColor(this,'${sec.key}','${c}')"></div>`;
+      });
+      html += `</div>`;
+    } else if (sec.type === 'sliders') {
+      html += `
+        <div class="slider-row">
+          <label>캐릭터 크기</label>
+          <input type="range" min="0.5" max="2" step="0.1" value="${state.scale}" oninput="state.scale=parseFloat(this.value);this.nextElementSibling.textContent=this.value">
+          <span class="val">${state.scale}</span>
+        </div>
+        <div class="slider-row">
+          <label>머리 크기</label>
+          <input type="range" min="0.6" max="1.8" step="0.1" value="${state.headSize}" oninput="state.headSize=parseFloat(this.value);this.nextElementSibling.textContent=this.value">
+          <span class="val">${state.headSize}</span>
+        </div>`;
+    }
 
-  // 애니메이션 계산
+    html += `</div></div>`;
+  });
+
+  html += `<div class="export-bar">
+    <button class="export-btn primary" onclick="exportPNG()">📥 PNG 저장</button>
+    <button class="export-btn secondary" onclick="copyJSON()">📋 JSON 복사</button>
+    <button class="export-btn secondary" onclick="randomize()">🎲 랜덤</button>
+  </div>`;
+
+  panel.innerHTML = html;
+}
+
+function toggleSection(el) {
+  el.classList.toggle('closed');
+  el.nextElementSibling.classList.toggle('hidden');
+}
+
+function selectOpt(el, key, val) {
+  state[key] = val;
+  el.parentElement.querySelectorAll('.opt-item').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+  updateJSON();
+}
+
+function selectColor(el, key, val) {
+  state[key] = val;
+  el.parentElement.querySelectorAll('.color-swatch').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+  updateJSON();
+}
+
+// 배경 선택 버튼
+function buildBgSelector() {
+  const wrap = document.getElementById('bgSelector');
+  BACKGROUNDS.forEach(bg => {
+    const btn = document.createElement('div');
+    btn.className = 'bg-btn' + (state.bgColor === bg.color ? ' active' : '');
+    btn.style.background = bg.color;
+    btn.onclick = () => {
+      state.bgColor = bg.color;
+      wrap.querySelectorAll('.bg-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    };
+    wrap.appendChild(btn);
+  });
+}
+
+// 애니메이션 바
+function buildAnimBar() {
+  const bar = document.getElementById('animBar');
+  ANIMS.forEach(a => {
+    const btn = document.createElement('button');
+    btn.className = 'anim-btn' + (state.anim === a.id ? ' active' : '');
+    btn.textContent = a.label;
+    btn.onclick = () => {
+      state.anim = a.id;
+      bar.querySelectorAll('.anim-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    };
+    bar.appendChild(btn);
+  });
+}
+
+// JSON 출력
+function updateJSON() {
+  const json = JSON.stringify(state);
+  document.getElementById('jsonBar').textContent = json;
+}
+
+function copyJSON() {
+  navigator.clipboard.writeText(JSON.stringify(state, null, 2));
+  const bar = document.getElementById('jsonBar');
+  const orig = bar.textContent;
+  bar.textContent = '✅ JSON 복사됨!';
+  setTimeout(() => bar.textContent = orig, 1500);
+}
+
+function exportPNG() {
+  const canvas = document.getElementById('mainCanvas');
+  const link = document.createElement('a');
+  link.download = 'character.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function randomize() {
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  state.bodyType = pick(DATA.bodyType).id;
+  state.hair = pick(DATA.hair).id;
+  state.hairColor = pick(COLORS.hair);
+  state.hat = pick(DATA.hat).id;
+  state.expression = pick(DATA.expression).id;
+  state.top = pick(DATA.top).id;
+  state.topColor = pick(COLORS.outfit);
+  state.bottom = pick(DATA.bottom).id;
+  state.bottomColor = pick(COLORS.outfit);
+  state.accessory = pick(DATA.accessory).id;
+  state.face = pick(DATA.face).id;
+  state.skinColor = pick(COLORS.skin);
+  buildOptions();
+  updateJSON();
+}
+
+// ═══════════════════════════════════════════════
+// 캐릭터 렌더링 엔진
+// ═══════════════════════════════════════════════
+const canvas = document.getElementById('mainCanvas');
+const ctx = canvas.getContext('2d');
+
+function getBodyParams() {
+  const base = { headR: 50, bodyW: 8, bodyH: 60, armLen: 40, legLen: 50, armW: 6, legW: 6, spread: 20 };
+  switch (state.bodyType) {
+    case 'thin': return { ...base, bodyW: 6, armW: 4, legW: 4 };
+    case 'chubby': return { ...base, headR: 52, bodyW: 20, bodyH: 55, armW: 8, legW: 8, spread: 24 };
+    case 'muscle': return { ...base, bodyW: 16, armW: 10, legW: 8, armLen: 42 };
+    case 'kid': return { ...base, headR: 55, bodyW: 6, bodyH: 35, armLen: 25, legLen: 30, armW: 5, legW: 5, spread: 14 };
+    case 'tall': return { ...base, bodyH: 75, legLen: 60, armLen: 48 };
+    default: return base;
+  }
+}
+
+function getAnimValues(anim, t) {
+  const v = { headY: 0, bodyTilt: 0, lArm: 0, rArm: 0, lLeg: 0, rLeg: 0, bounce: 0, mouth: 0 };
   switch (anim) {
-    case 'idle':
-      bounceY = Math.sin(t * 3) * 2 * s;
-      break;
+    case 'idle': v.bounce = Math.sin(t*3)*2; break;
     case 'walk':
-      lLegAngle = Math.sin(t * 8) * 25;
-      rLegAngle = Math.sin(t * 8 + Math.PI) * 25;
-      lArmAngle = Math.sin(t * 8 + Math.PI) * 20;
-      rArmAngle = Math.sin(t * 8) * 20;
-      bounceY = Math.abs(Math.sin(t * 8)) * 4 * s;
-      break;
+      v.lLeg = Math.sin(t*8)*25; v.rLeg = Math.sin(t*8+Math.PI)*25;
+      v.lArm = Math.sin(t*8+Math.PI)*20; v.rArm = Math.sin(t*8)*20;
+      v.bounce = Math.abs(Math.sin(t*8))*4; break;
     case 'run':
-      lLegAngle = Math.sin(t * 14) * 40;
-      rLegAngle = Math.sin(t * 14 + Math.PI) * 40;
-      lArmAngle = Math.sin(t * 14 + Math.PI) * 35;
-      rArmAngle = Math.sin(t * 14) * 35;
-      bounceY = Math.abs(Math.sin(t * 14)) * 8 * s;
-      bodyTilt = Math.sin(t * 14) * 3;
-      break;
-    case 'wave':
-      rArmAngle = -120 + Math.sin(t * 10) * 30;
-      bounceY = Math.sin(t * 3) * 2 * s;
-      break;
+      v.lLeg = Math.sin(t*14)*40; v.rLeg = Math.sin(t*14+Math.PI)*40;
+      v.lArm = Math.sin(t*14+Math.PI)*35; v.rArm = Math.sin(t*14)*35;
+      v.bounce = Math.abs(Math.sin(t*14))*8; v.bodyTilt = Math.sin(t*14)*3; break;
+    case 'wave': v.rArm = -130+Math.sin(t*10)*30; v.bounce = Math.sin(t*3)*2; break;
     case 'jump':
-      const jt = (t % 2) / 2;
-      bounceY = -Math.sin(jt * Math.PI) * 60 * s;
-      lArmAngle = -Math.sin(jt * Math.PI) * 40;
-      rArmAngle = -Math.sin(jt * Math.PI) * 40;
-      break;
-    case 'nod':
-      headOffY = Math.sin(t * 6) * 8 * s;
-      break;
-    case 'shake':
-      bodyTilt = Math.sin(t * 10) * 10;
-      break;
-    case 'talk':
-      talkMouth = Math.abs(Math.sin(t * 12));
-      bounceY = Math.sin(t * 3) * 1 * s;
-      lArmAngle = Math.sin(t * 4) * 10;
-      rArmAngle = Math.sin(t * 4 + 1) * 15;
-      break;
+      const jt=(t%2)/2; v.bounce=-Math.sin(jt*Math.PI)*80;
+      v.lArm=-Math.sin(jt*Math.PI)*40; v.rArm=-Math.sin(jt*Math.PI)*40; break;
+    case 'nod': v.headY=Math.sin(t*6)*8; break;
+    case 'shake': v.bodyTilt=Math.sin(t*10)*10; break;
+    case 'talk': v.mouth=Math.abs(Math.sin(t*12)); v.bounce=Math.sin(t*3); v.lArm=Math.sin(t*4)*10; v.rArm=Math.sin(t*4+1)*15; break;
     case 'dance':
-      bounceY = Math.abs(Math.sin(t * 8)) * 10 * s;
-      bodyTilt = Math.sin(t * 4) * 8;
-      lArmAngle = Math.sin(t * 6) * 60;
-      rArmAngle = Math.sin(t * 6 + 2) * 60;
-      lLegAngle = Math.sin(t * 4) * 15;
-      rLegAngle = Math.sin(t * 4 + Math.PI) * 15;
-      break;
-    case 'sit':
-      lLegAngle = 80;
-      rLegAngle = 80;
-      bounceY = 20 * s;
-      break;
+      v.bounce=Math.abs(Math.sin(t*8))*12; v.bodyTilt=Math.sin(t*4)*8;
+      v.lArm=Math.sin(t*6)*60; v.rArm=Math.sin(t*6+2)*60;
+      v.lLeg=Math.sin(t*4)*15; v.rLeg=Math.sin(t*4+Math.PI)*15; break;
+    case 'sit': v.lLeg=80; v.rLeg=80; v.bounce=20; break;
+    case 'think': v.rArm=-100; v.headY=Math.sin(t*2)*3; v.bodyTilt=5; break;
+    case 'clap':
+      v.lArm=-60+Math.sin(t*12)*20; v.rArm=-60+Math.sin(t*12)*20;
+      v.bounce=Math.abs(Math.sin(t*12))*3; break;
+    case 'kick':
+      v.rLeg=-40+Math.sin(t*6)*50; v.lArm=Math.sin(t*6)*15;
+      v.bounce=Math.sin(t*6)*3; break;
+    case 'bow':
+      const bt=Math.sin(t*3)*0.5+0.5; v.bodyTilt=bt*30; v.headY=bt*10; break;
+    case 'spin': v.bodyTilt=((t*120)%360); break;
+  }
+  return v;
+}
+
+function render() {
+  animTime += 0.016;
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // 배경
+  ctx.fillStyle = state.bgColor;
+  ctx.fillRect(0, 0, W, H);
+
+  // 바닥 그리드
+  const isLight = ['#f1f5f9','#ffffff','#6b7280'].includes(state.bgColor);
+  ctx.strokeStyle = isLight ? '#00000010' : '#ffffff08';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < W; i += 40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,H); ctx.stroke(); }
+  for (let i = 0; i < H; i += 40) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(W,i); ctx.stroke(); }
+
+  const p = getBodyParams();
+  const s = state.scale;
+  const hs = state.headSize;
+  const av = getAnimValues(state.anim, animTime);
+  const oc = state.outlineColor;
+  const cx = W / 2, cy = H * 0.55;
+
+  ctx.save();
+  ctx.translate(cx, cy + av.bounce * s);
+  if (state.anim === 'spin') {
+    // 회전은 특수 처리
+    ctx.rotate(av.bodyTilt * Math.PI / 180);
+  } else {
+    ctx.rotate(av.bodyTilt * Math.PI / 180);
   }
 
-  ctx.save();
-  ctx.translate(x, y + bounceY);
-  ctx.rotate(bodyTilt * Math.PI / 180);
+  const headR = p.headR * s * hs;
+  const bodyW = p.bodyW * s;
+  const bodyH = p.bodyH * s;
+  const armLen = p.armLen * s;
+  const legLen = p.legLen * s;
+  const armW = p.armW * s;
+  const legW = p.legW * s;
+  const spread = p.spread * s;
 
-  const headCY = -(bodyH + headR) + headOffY;
-  const bodyCY = 0;
-  const shoulderY = -bodyH / 2;
-  const hipY = bodyH / 2;
+  const shoulderY = -bodyH/2;
+  const hipY = bodyH/2;
+  const headCY = -(bodyH + headR) + av.headY * s;
 
   // ── 그림자 ──
-  ctx.save();
-  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.fillStyle = 'rgba(0,0,0,0.12)';
   ctx.beginPath();
-  ctx.ellipse(0, hipY + legLen + 5*s, 30*s, 6*s, 0, 0, Math.PI*2);
+  ctx.ellipse(0, hipY+legLen+5*s, 35*s, 8*s, 0, 0, Math.PI*2);
   ctx.fill();
-  ctx.restore();
 
   // ── 다리 ──
-  ctx.save();
-  // 왼다리
-  ctx.save();
-  ctx.translate(-spread/2, hipY);
-  ctx.rotate(lLegAngle * Math.PI / 180);
-  ctx.beginPath();
-  ctx.strokeStyle = lc;
-  ctx.lineWidth = legW;
-  ctx.lineCap = 'round';
-  ctx.moveTo(0, 0);
-  ctx.lineTo(0, legLen);
-  ctx.stroke();
-  // 발
-  ctx.beginPath();
-  ctx.moveTo(-8*s, legLen);
-  ctx.lineTo(10*s, legLen);
-  ctx.stroke();
-  ctx.restore();
+  [[-1, av.lLeg], [1, av.rLeg]].forEach(([dir, angle]) => {
+    ctx.save();
+    ctx.translate(dir * spread/2, hipY);
+    ctx.rotate(angle * Math.PI/180);
+    ctx.strokeStyle = oc;
+    ctx.lineWidth = legW;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0, legLen); ctx.stroke();
+    // 하의
+    if (state.bottom !== 'none') {
+      const bLen = state.bottom === 'shorts' ? legLen*0.4 : state.bottom === 'skirt' ? legLen*0.5 : legLen*0.85;
+      ctx.strokeStyle = state.bottomColor;
+      ctx.lineWidth = legW + 4*s;
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0, bLen); ctx.stroke();
+    }
+    // 발
+    ctx.strokeStyle = oc;
+    ctx.lineWidth = Math.max(3, legW*0.7);
+    ctx.beginPath(); ctx.moveTo(-8*s, legLen); ctx.lineTo(10*s, legLen); ctx.stroke();
+    ctx.restore();
+  });
 
-  // 오른다리
-  ctx.save();
-  ctx.translate(spread/2, hipY);
-  ctx.rotate(rLegAngle * Math.PI / 180);
-  ctx.beginPath();
-  ctx.strokeStyle = lc;
-  ctx.lineWidth = legW;
-  ctx.lineCap = 'round';
-  ctx.moveTo(0, 0);
-  ctx.lineTo(0, legLen);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(-8*s, legLen);
-  ctx.lineTo(10*s, legLen);
-  ctx.stroke();
-  ctx.restore();
-  ctx.restore();
+  // ── 치마 (하의=skirt) ──
+  if (state.bottom === 'skirt') {
+    ctx.beginPath();
+    ctx.moveTo(-bodyW/2 - 2*s, hipY - 2*s);
+    ctx.lineTo(-22*s, hipY + legLen*0.5);
+    ctx.lineTo(22*s, hipY + legLen*0.5);
+    ctx.lineTo(bodyW/2 + 2*s, hipY - 2*s);
+    ctx.closePath();
+    ctx.fillStyle = state.bottomColor;
+    ctx.fill();
+  }
 
   // ── 몸통 ──
-  if (char.bodyStyle === 'dress') {
+  if (state.top === 'dress') {
     ctx.beginPath();
-    ctx.moveTo(-bodyW/2, shoulderY);
-    ctx.lineTo(-20*s, hipY + 10*s);
-    ctx.lineTo(20*s, hipY + 10*s);
-    ctx.lineTo(bodyW/2, shoulderY);
+    ctx.moveTo(-bodyW/2 - 2*s, shoulderY);
+    ctx.lineTo(-20*s, hipY+10*s);
+    ctx.lineTo(20*s, hipY+10*s);
+    ctx.lineTo(bodyW/2 + 2*s, shoulderY);
     ctx.closePath();
-    ctx.fillStyle = char.dressColor || '#ff6b8a';
+    ctx.fillStyle = state.topColor;
     ctx.fill();
-    ctx.strokeStyle = '#222';
-    ctx.lineWidth = 2*s;
-    ctx.stroke();
-  } else if (char.bodyStyle === 'box') {
-    ctx.fillStyle = char.bodyFill || '#8e9eab';
-    ctx.strokeStyle = '#666';
-    ctx.lineWidth = 2*s;
-    const bw = bodyW;
-    ctx.beginPath();
-    ctx.roundRect(-bw/2, shoulderY, bw, bodyH, 6*s);
-    ctx.fill(); ctx.stroke();
-    // 로봇 디테일
-    ctx.fillStyle = '#666';
-    ctx.fillRect(-10*s, shoulderY + 10*s, 20*s, 4*s);
-    ctx.fillRect(-10*s, shoulderY + 20*s, 20*s, 4*s);
-    ctx.fillStyle = char.accent || '#00ff88';
-    ctx.beginPath();
-    ctx.arc(0, shoulderY + 35*s, 5*s, 0, Math.PI*2);
-    ctx.fill();
+    ctx.strokeStyle = oc; ctx.lineWidth = 2*s; ctx.stroke();
   } else {
-    ctx.strokeStyle = bc;
-    ctx.lineWidth = bodyW;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(0, shoulderY);
-    ctx.lineTo(0, hipY);
-    ctx.stroke();
+    // 기본 막대 몸통
+    ctx.strokeStyle = oc; ctx.lineWidth = bodyW; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0, shoulderY); ctx.lineTo(0, hipY); ctx.stroke();
+    // 상의
+    if (state.top !== 'none') {
+      const tw = state.top === 'hoodie' ? bodyW+10*s : state.top === 'suit' ? bodyW+6*s : state.top === 'armor' ? bodyW+14*s : bodyW+4*s;
+      ctx.strokeStyle = state.topColor; ctx.lineWidth = tw;
+      ctx.beginPath(); ctx.moveTo(0, shoulderY); ctx.lineTo(0, hipY - 5*s); ctx.stroke();
+      // 상의 디테일
+      if (state.top === 'suit') {
+        ctx.strokeStyle = isLight ? '#00000020' : '#ffffff15'; ctx.lineWidth = 2*s;
+        ctx.beginPath(); ctx.moveTo(0, shoulderY+5*s); ctx.lineTo(0, hipY-10*s); ctx.stroke();
+      }
+    }
   }
 
   // ── 팔 ──
-  // 왼팔
-  ctx.save();
-  ctx.translate(-(char.bodyStyle === 'box' ? bodyW/2 : 0), shoulderY);
-  ctx.rotate(lArmAngle * Math.PI / 180);
-  ctx.beginPath();
-  ctx.strokeStyle = ac;
-  ctx.lineWidth = armW;
-  ctx.lineCap = 'round';
-  ctx.moveTo(0, 0);
-  ctx.lineTo(-armLen * 0.7, armLen * 0.7);
-  ctx.stroke();
-  // 손
-  ctx.beginPath();
-  ctx.arc(-armLen*0.7, armLen*0.7, 5*s, 0, Math.PI*2);
-  ctx.fillStyle = char.headFill || '#f0f0e8';
-  if (char.id === 'ninja') ctx.fillStyle = '#2d3436';
-  if (char.id === 'robot') ctx.fillStyle = '#8e9eab';
-  ctx.fill();
-  ctx.restore();
-
-  // 오른팔
-  ctx.save();
-  ctx.translate(char.bodyStyle === 'box' ? bodyW/2 : 0, shoulderY);
-  ctx.rotate(rArmAngle * Math.PI / 180);
-  ctx.beginPath();
-  ctx.strokeStyle = ac;
-  ctx.lineWidth = armW;
-  ctx.lineCap = 'round';
-  ctx.moveTo(0, 0);
-  ctx.lineTo(armLen * 0.7, armLen * 0.7);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(armLen*0.7, armLen*0.7, 5*s, 0, Math.PI*2);
-  ctx.fillStyle = char.headFill || '#f0f0e8';
-  if (char.id === 'ninja') ctx.fillStyle = '#2d3436';
-  if (char.id === 'robot') ctx.fillStyle = '#8e9eab';
-  ctx.fill();
-  ctx.restore();
-
-  // ── 액세서리 (지팡이, 칼 등) ──
-  if (char.hasCane) {
+  [[-1, av.lArm, -0.7, 0.7], [1, av.rArm, 0.7, 0.7]].forEach(([dir, angle, dx, dy]) => {
     ctx.save();
-    ctx.strokeStyle = '#8B4513';
-    ctx.lineWidth = 4*s;
-    ctx.lineCap = 'round';
+    ctx.translate(0, shoulderY + 5*s);
+    ctx.rotate(angle * Math.PI/180);
+    ctx.strokeStyle = oc; ctx.lineWidth = armW; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(dir*armLen*0.7, armLen*0.7); ctx.stroke();
+    // 소매
+    if (state.top !== 'none' && state.top !== 'dress') {
+      ctx.strokeStyle = state.topColor; ctx.lineWidth = armW+3*s;
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(dir*armLen*0.3, armLen*0.3); ctx.stroke();
+    }
+    // 손
     ctx.beginPath();
-    ctx.moveTo(armLen*0.7 + 5*s, shoulderY + armLen*0.7);
-    ctx.lineTo(armLen*0.7 + 5*s, hipY + legLen);
-    ctx.stroke();
+    ctx.arc(dir*armLen*0.7, armLen*0.7, 5*s, 0, Math.PI*2);
+    ctx.fillStyle = state.skinColor; ctx.fill();
     ctx.restore();
-  }
-  if (char.hasSword) {
-    ctx.save();
-    ctx.strokeStyle = '#bbb';
-    ctx.lineWidth = 3*s;
-    ctx.beginPath();
-    ctx.moveTo(-10*s, shoulderY - 10*s);
-    ctx.lineTo(-10*s, shoulderY + 50*s);
-    ctx.stroke();
-    ctx.strokeStyle = '#8B4513';
-    ctx.lineWidth = 6*s;
-    ctx.beginPath();
-    ctx.moveTo(-15*s, shoulderY + 12*s);
-    ctx.lineTo(-5*s, shoulderY + 12*s);
-    ctx.stroke();
-    ctx.restore();
-  }
+  });
+
+  // ── 악세서리 (손에 드는 것) ──
+  drawAccessory(ctx, state.accessory, armLen, shoulderY, s, av, oc);
 
   // ── 머리 ──
   ctx.save();
   ctx.translate(0, headCY);
 
-  if (char.headShape === 'roundRect') {
-    const hw = (char.headR || 50) * s * 0.9;
-    const hh = (char.headR || 50) * s * 0.8;
-    ctx.beginPath();
-    ctx.roundRect(-hw, -hh, hw*2, hh*2, 15*s);
-    ctx.fillStyle = char.headFill;
-    ctx.fill();
-    ctx.strokeStyle = '#666';
-    ctx.lineWidth = 4*s;
-    ctx.stroke();
-  } else {
-    ctx.beginPath();
-    ctx.arc(0, 0, headR, 0, Math.PI * 2);
-    ctx.fillStyle = char.headFill;
-    ctx.fill();
-    ctx.strokeStyle = '#222';
-    ctx.lineWidth = 4 * s;
-    ctx.stroke();
-  }
+  // 머리 원
+  ctx.beginPath();
+  ctx.arc(0, 0, headR, 0, Math.PI*2);
+  ctx.fillStyle = state.skinColor;
+  ctx.fill();
+  ctx.strokeStyle = oc; ctx.lineWidth = 4*s; ctx.stroke();
 
   // ── 머리카락 ──
-  switch (char.hairType) {
-    case 'cap':
-      ctx.beginPath();
-      ctx.arc(0, 0, headR, Math.PI, 0);
-      ctx.fillStyle = char.hairFill || '#666';
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(0, 0, headR, Math.PI + 0.3, -0.3);
-      ctx.strokeStyle = '#222';
-      ctx.lineWidth = 3*s;
-      ctx.stroke();
-      break;
-    case 'long':
-      ctx.beginPath();
-      ctx.arc(0, -5*s, headR, Math.PI + 0.2, -0.2);
-      ctx.fillStyle = char.hairFill;
-      ctx.fill();
-      // 양쪽 긴 머리
-      ctx.fillStyle = char.hairFill;
-      ctx.beginPath();
-      ctx.ellipse(-headR + 5*s, 15*s, 12*s, 45*s, -0.1, 0, Math.PI*2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(headR - 5*s, 15*s, 12*s, 45*s, 0.1, 0, Math.PI*2);
-      ctx.fill();
-      break;
-    case 'spiky':
-      ctx.fillStyle = char.hairFill;
-      for (let i = -3; i <= 3; i++) {
-        ctx.beginPath();
-        const angle = Math.PI + (i * 0.3);
-        const sx = Math.cos(angle) * headR * 0.8;
-        const sy = Math.sin(angle) * headR * 0.8;
-        ctx.moveTo(sx - 8*s, sy);
-        ctx.lineTo(sx, sy - 20*s);
-        ctx.lineTo(sx + 8*s, sy);
-        ctx.fill();
-      }
-      break;
-    case 'crew':
-      ctx.beginPath();
-      ctx.arc(0, -5*s, headR - 2*s, Math.PI + 0.5, -0.5);
-      ctx.fillStyle = char.hairFill;
-      ctx.fill();
-      break;
-    case 'bowl':
-      ctx.beginPath();
-      ctx.arc(0, -5*s, headR + 2*s, Math.PI + 0.1, -0.1);
-      ctx.fillStyle = char.hairFill;
-      ctx.fill();
-      // 앞머리
-      ctx.fillRect(-headR*0.8, -headR*0.3, headR*1.6, 10*s);
-      break;
-    case 'bald-side':
-      ctx.fillStyle = char.hairFill;
-      ctx.beginPath();
-      ctx.arc(0, 0, headR, Math.PI + 0.8, Math.PI + 0.2, true);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(0, 0, headR, -0.2, -0.8, true);
-      ctx.fill();
-      break;
-    case 'antenna':
-      ctx.strokeStyle = '#666';
-      ctx.lineWidth = 3*s;
-      ctx.beginPath();
-      ctx.moveTo(0, -headR*0.8);
-      ctx.lineTo(0, -headR*0.8 - 20*s);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(0, -headR*0.8 - 22*s, 5*s, 0, Math.PI*2);
-      ctx.fillStyle = char.accent || '#e74c3c';
-      ctx.fill();
-      break;
+  drawHair(ctx, state.hair, headR, state.hairColor, oc, s);
+
+  // ── 모자 ──
+  drawHat(ctx, state.hat, headR, state.hatColor, oc, s);
+
+  // ── 얼굴 ──
+  // 눈
+  const eyeY = -2*s;
+  const eyeSpacing = headR * 0.26;
+
+  if (state.expression === 'cool' || state.accessory === 'sunglasses') {
+    // 선글라스
+    ctx.fillStyle = '#222';
+    ctx.beginPath(); ctx.roundRect(-eyeSpacing-10*s, eyeY-7*s, 20*s, 14*s, 3*s); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(eyeSpacing-10*s, eyeY-7*s, 20*s, 14*s, 3*s); ctx.fill();
+    ctx.strokeStyle = '#222'; ctx.lineWidth = 2*s;
+    ctx.beginPath(); ctx.moveTo(-eyeSpacing+10*s, eyeY); ctx.lineTo(eyeSpacing-10*s, eyeY); ctx.stroke();
+  } else if (state.accessory === 'glasses') {
+    ctx.strokeStyle = '#555'; ctx.lineWidth = 2.5*s;
+    ctx.beginPath(); ctx.arc(-eyeSpacing, eyeY, 11*s, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(eyeSpacing, eyeY, 11*s, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-eyeSpacing+11*s, eyeY); ctx.lineTo(eyeSpacing-11*s, eyeY); ctx.stroke();
+    drawEyes(ctx, -eyeSpacing, eyeY, eyeSpacing, eyeY, 5*s, 8*s, oc, state.expression, s);
+  } else {
+    const ew = state.bodyType === 'kid' ? 8 : 5;
+    const eh = state.bodyType === 'kid' ? 10 : 9;
+    drawEyes(ctx, -eyeSpacing, eyeY, eyeSpacing, eyeY, ew*s, eh*s, oc, state.expression, s);
   }
 
-  // ── 액세서리 (모자류) ──
-  if (char.hasTopHat) {
-    ctx.fillStyle = '#2d3436';
-    ctx.fillRect(-25*s, -headR - 35*s, 50*s, 35*s);
-    ctx.fillRect(-35*s, -headR - 5*s, 70*s, 8*s);
-    ctx.fillStyle = '#e74c3c';
-    ctx.fillRect(-25*s, -headR - 12*s, 50*s, 5*s);
-  }
-  if (char.hasChefHat) {
-    ctx.fillStyle = '#fff';
-    ctx.strokeStyle = '#ddd';
-    ctx.lineWidth = 2*s;
-    ctx.beginPath();
-    ctx.ellipse(0, -headR - 15*s, 30*s, 20*s, 0, 0, Math.PI*2);
-    ctx.fill(); ctx.stroke();
-    ctx.beginPath();
-    ctx.ellipse(-15*s, -headR - 10*s, 18*s, 18*s, 0, 0, Math.PI*2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(15*s, -headR - 10*s, 18*s, 18*s, 0, 0, Math.PI*2);
-    ctx.fill();
-    ctx.fillRect(-28*s, -headR - 2*s, 56*s, 8*s);
-    ctx.strokeRect(-28*s, -headR - 2*s, 56*s, 8*s);
-  }
-  if (char.hasRibbon) {
-    ctx.fillStyle = '#ff4757';
-    ctx.beginPath();
-    ctx.moveTo(headR*0.6, -headR*0.6);
-    ctx.lineTo(headR*0.6 + 15*s, -headR*0.6 - 10*s);
-    ctx.lineTo(headR*0.6 + 5*s, -headR*0.6);
-    ctx.lineTo(headR*0.6 + 15*s, -headR*0.6 + 10*s);
-    ctx.closePath();
-    ctx.fill();
-  }
+  // 얼굴 장식
+  drawFaceDecor(ctx, state.face, eyeY, headR, s, oc);
 
-  // ── 닌자 마스크 ──
-  if (char.hasMask) {
-    ctx.fillStyle = char.maskBand || '#e74c3c';
-    ctx.fillRect(-headR - 5*s, -8*s, (headR+5)*2*s/s, 10*s);
-    // 뒤로 날리는 띠
-    ctx.beginPath();
-    ctx.moveTo(headR, -5*s);
-    ctx.quadraticCurveTo(headR + 20*s, -10*s, headR + 25*s + Math.sin(t*4)*5*s, 5*s);
-    ctx.strokeStyle = char.maskBand;
-    ctx.lineWidth = 4*s;
-    ctx.stroke();
-  }
+  // 입
+  const mouthY = eyeY + headR * 0.4;
+  drawMouth(ctx, 0, mouthY, state.expression, s, av.mouth, oc);
 
-  // ── 눈 ──
-  const eyeY = 0;
-  const eyeSpacing = 12 * s;
-  const expr = animState.expr || 'normal';
-
-  switch (char.eyeType) {
-    case 'oval':
-      drawEyes(ctx, -eyeSpacing, eyeY, eyeSpacing, eyeY, 5*s, 10*s, '#222', expr, s);
-      break;
-    case 'round':
-      drawEyes(ctx, -eyeSpacing, eyeY, eyeSpacing, eyeY, 6*s, 6*s, '#222', expr, s);
-      if (char.hasBlush) drawBlush(ctx, eyeSpacing + 12*s, eyeY + 8*s, 8*s);
-      break;
-    case 'glasses':
-      // 안경 프레임
-      ctx.strokeStyle = '#555';
-      ctx.lineWidth = 2.5*s;
-      ctx.beginPath();
-      ctx.arc(-eyeSpacing, eyeY, 12*s, 0, Math.PI*2);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(eyeSpacing, eyeY, 12*s, 0, Math.PI*2);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(-eyeSpacing + 12*s, eyeY);
-      ctx.lineTo(eyeSpacing - 12*s, eyeY);
-      ctx.stroke();
-      drawEyes(ctx, -eyeSpacing, eyeY, eyeSpacing, eyeY, 4*s, 4*s, '#222', expr, s);
-      break;
-    case 'dot':
-      drawEyes(ctx, -eyeSpacing, eyeY, eyeSpacing, eyeY, 5*s, 5*s, '#222', expr, s);
-      break;
-    case 'angry':
-      drawEyes(ctx, -eyeSpacing, eyeY, eyeSpacing, eyeY, 7*s, 5*s, '#222', 'angry', s);
-      break;
-    case 'big':
-      drawEyes(ctx, -eyeSpacing, eyeY, eyeSpacing, eyeY, 9*s, 9*s, '#222', expr, s);
-      if (char.hasBlush) drawBlush(ctx, eyeSpacing + 14*s, eyeY + 10*s, 9*s);
-      break;
-    case 'squint':
-      ctx.strokeStyle = '#222';
-      ctx.lineWidth = 3*s;
-      ctx.beginPath();
-      ctx.moveTo(-eyeSpacing - 6*s, eyeY);
-      ctx.lineTo(-eyeSpacing + 6*s, eyeY);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(eyeSpacing - 6*s, eyeY);
-      ctx.lineTo(eyeSpacing + 6*s, eyeY);
-      ctx.stroke();
-      break;
-    case 'happy':
-      ctx.strokeStyle = '#222';
-      ctx.lineWidth = 3*s;
-      ctx.beginPath();
-      ctx.arc(-eyeSpacing, eyeY, 6*s, Math.PI, 0);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(eyeSpacing, eyeY, 6*s, Math.PI, 0);
-      ctx.stroke();
-      break;
-    case 'slit':
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(-eyeSpacing - 8*s, eyeY - 2.5*s, 16*s, 5*s);
-      ctx.fillRect(eyeSpacing - 8*s, eyeY - 2.5*s, 16*s, 5*s);
-      break;
-    case 'screen':
-      ctx.fillStyle = char.accent || '#00ff88';
-      ctx.shadowColor = char.accent || '#00ff88';
-      ctx.shadowBlur = 8*s;
-      ctx.fillRect(-eyeSpacing - 7*s, eyeY - 7*s, 14*s, 14*s);
-      ctx.fillRect(eyeSpacing - 7*s, eyeY - 7*s, 14*s, 14*s);
-      ctx.shadowBlur = 0;
-      break;
-  }
-
-  // ── 코 ──
-  if (char.hasNoseLines) {
-    ctx.strokeStyle = '#888';
-    ctx.lineWidth = 1.5*s;
-    for (let i = 0; i < 4; i++) {
-      ctx.beginPath();
-      ctx.moveTo(-6*s + i*4*s, eyeY + 16*s);
-      ctx.lineTo(-6*s + i*4*s, eyeY + 22*s);
-      ctx.stroke();
-    }
-  }
-
-  // ── 콧수염 ──
-  if (char.hasMustache) {
-    ctx.fillStyle = '#555';
-    ctx.beginPath();
-    ctx.ellipse(-8*s, eyeY + 18*s, 10*s, 4*s, -0.2, 0, Math.PI*2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(8*s, eyeY + 18*s, 10*s, 4*s, 0.2, 0, Math.PI*2);
-    ctx.fill();
-  }
-
-  // ── 주름 ──
-  if (char.hasWrinkles) {
-    ctx.strokeStyle = '#cba';
-    ctx.lineWidth = 1*s;
-    ctx.beginPath();
-    ctx.moveTo(-headR*0.5, eyeY + 20*s);
-    ctx.quadraticCurveTo(-headR*0.3, eyeY + 18*s, -headR*0.1, eyeY + 20*s);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(headR*0.1, eyeY + 20*s);
-    ctx.quadraticCurveTo(headR*0.3, eyeY + 18*s, headR*0.5, eyeY + 20*s);
-    ctx.stroke();
-  }
-
-  // ── 입 ──
-  const mouthY = eyeY + 25 * s;
-  const mType = char.mouthType || 'line';
-  const mouthOpen = talkMouth;
-
-  drawMouth(ctx, 0, mouthY, mType, s, mouthOpen, expr, char);
+  // 표정 이펙트
+  drawExprEffect(ctx, state.expression, headR, s, animTime);
 
   ctx.restore(); // head
   ctx.restore(); // main
+
+  updateJSON();
+  requestAnimationFrame(render);
 }
 
+// ── 눈 그리기 ──
 function drawEyes(ctx, lx, ly, rx, ry, w, h, color, expr, s) {
-  if (expr === 'sleep' || expr === 'closed') {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2*s;
-    ctx.beginPath(); ctx.moveTo(lx-w, ly); ctx.lineTo(lx+w, ly); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(rx-w, ry); ctx.lineTo(rx+w, ry); ctx.stroke();
+  if (expr === 'sleep') {
+    ctx.strokeStyle=color; ctx.lineWidth=2.5*s; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(lx-w,ly); ctx.lineTo(lx+w,ly); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(rx-w,ry); ctx.lineTo(rx+w,ry); ctx.stroke();
+    return;
+  }
+  if (expr === 'happy') {
+    ctx.strokeStyle=color; ctx.lineWidth=2.5*s; ctx.lineCap='round';
+    ctx.beginPath(); ctx.arc(lx,ly+3*s,w,Math.PI+0.3,-0.3); ctx.stroke();
+    ctx.beginPath(); ctx.arc(rx,ry+3*s,w,Math.PI+0.3,-0.3); ctx.stroke();
     return;
   }
   if (expr === 'wink') {
-    ctx.fillStyle = color;
-    ctx.beginPath(); ctx.ellipse(lx, ly, w, h, 0, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2*s;
-    ctx.beginPath(); ctx.moveTo(rx-w, ry); ctx.lineTo(rx+w, ry); ctx.stroke();
+    ctx.fillStyle=color;
+    ctx.beginPath(); ctx.ellipse(lx,ly,w,h,0,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle=color; ctx.lineWidth=2.5*s;
+    ctx.beginPath(); ctx.moveTo(rx-w,ry); ctx.lineTo(rx+w,ry); ctx.stroke();
     return;
   }
-  // 기본 눈
-  ctx.fillStyle = color;
-  ctx.beginPath(); ctx.ellipse(lx, ly, w, h, 0, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(rx, ry, w, h, 0, 0, Math.PI*2); ctx.fill();
-}
-
-function drawBlush(ctx, x, y, r) {
-  ctx.fillStyle = 'rgba(255,182,193,0.4)';
-  ctx.beginPath(); ctx.ellipse(-x, y, r, r*0.6, 0, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(x, y, r, r*0.6, 0, 0, Math.PI*2); ctx.fill();
-}
-
-function drawMouth(ctx, x, y, type, s, openAmount, expr, char) {
-  ctx.save();
-  ctx.translate(x, y);
-
-  if (expr === 'happy' || expr === 'smile') type = 'smile';
-  if (expr === 'sad') type = 'frown';
-  if (expr === 'surprised') type = 'o';
-  if (expr === 'angry') type = 'teeth';
-
-  // 말하기 중이면 입 열기
-  if (openAmount > 0.3) {
-    ctx.fillStyle = '#222';
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 10*s, 6*s * openAmount, 0, 0, Math.PI*2);
-    ctx.fill();
-    ctx.restore();
+  if (expr === 'dizzy') {
+    ctx.strokeStyle=color; ctx.lineWidth=2*s;
+    ctx.beginPath(); ctx.moveTo(lx-w,ly-h); ctx.lineTo(lx+w,ly+h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(lx+w,ly-h); ctx.lineTo(lx-w,ly+h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(rx-w,ry-h); ctx.lineTo(rx+w,ry+h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(rx+w,ry-h); ctx.lineTo(rx-w,ry+h); ctx.stroke();
     return;
   }
-
-  switch (type) {
-    case 'line':
-      ctx.strokeStyle = '#222';
-      ctx.lineWidth = 3*s;
+  if (expr === 'angry') {
+    // 화난 눈썹
+    ctx.strokeStyle=color; ctx.lineWidth=3*s; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(lx-w,ly-h-2*s); ctx.lineTo(lx+w,ly-h+4*s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(rx+w,ry-h-2*s); ctx.lineTo(rx-w,ry-h+4*s); ctx.stroke();
+  }
+  if (expr === 'love') {
+    ctx.fillStyle = '#e74c3c';
+    [lx, rx].forEach(x => {
       ctx.beginPath();
-      ctx.moveTo(-12*s, 0);
-      ctx.lineTo(12*s, 0);
-      ctx.stroke();
-      break;
-    case 'smile':
-    case 'smile-wide':
-      ctx.strokeStyle = '#222';
-      ctx.lineWidth = 3*s;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      const sw = type === 'smile-wide' ? 14 : 10;
-      ctx.arc(0, -5*s, sw*s, 0.3, Math.PI - 0.3);
-      ctx.stroke();
-      break;
-    case 'grin':
-      ctx.strokeStyle = '#222';
-      ctx.lineWidth = 3*s;
-      ctx.beginPath();
-      ctx.arc(0, -8*s, 14*s, 0.2, Math.PI - 0.2);
-      ctx.stroke();
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(-10*s, -2*s, 20*s, 4*s);
-      break;
-    case 'teeth':
-      ctx.fillStyle = '#222';
-      ctx.fillRect(-12*s, -3*s, 24*s, 8*s);
-      ctx.fillStyle = '#fff';
-      for (let i = 0; i < 5; i++) {
-        ctx.fillRect(-10*s + i*5*s, -2*s, 3*s, 3*s);
-      }
-      break;
-    case 'o':
-      ctx.fillStyle = '#222';
-      ctx.beginPath();
-      ctx.arc(0, 0, 6*s, 0, Math.PI*2);
+      ctx.moveTo(x, ly+2*s);
+      ctx.bezierCurveTo(x-w,ly-h, x-w*2,ly+2*s, x,ly+h);
+      ctx.bezierCurveTo(x+w*2,ly+2*s, x+w,ly-h, x,ly+2*s);
       ctx.fill();
+    });
+    return;
+  }
+  if (expr === 'cry') {
+    ctx.fillStyle=color;
+    ctx.beginPath(); ctx.ellipse(lx,ly,w,h,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(rx,ry,w,h,0,0,Math.PI*2); ctx.fill();
+    // 눈물
+    ctx.fillStyle='#74b9ff';
+    ctx.beginPath(); ctx.ellipse(lx+w,ly+h+4*s,2*s,6*s,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(rx-w,ry+h+4*s,2*s,6*s,0,0,Math.PI*2); ctx.fill();
+    return;
+  }
+
+  // 기본
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.ellipse(lx,ly,w,h,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(rx,ry,w,h,0,0,Math.PI*2); ctx.fill();
+  // 하이라이트
+  if (state.bodyType === 'kid') {
+    ctx.fillStyle='white';
+    ctx.beginPath(); ctx.arc(lx+2*s,ly-2*s,2.5*s,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(rx+2*s,ry-2*s,2.5*s,0,Math.PI*2); ctx.fill();
+  }
+}
+
+// ── 입 그리기 ──
+function drawMouth(ctx, x, y, expr, s, openAmt, color) {
+  ctx.save(); ctx.translate(x, y);
+
+  if (openAmt > 0.3) {
+    ctx.fillStyle=color;
+    ctx.beginPath(); ctx.ellipse(0,0,8*s,5*s*openAmt,0,0,Math.PI*2); ctx.fill();
+    ctx.restore(); return;
+  }
+
+  ctx.strokeStyle=color; ctx.lineWidth=2.5*s; ctx.lineCap='round';
+
+  switch(expr) {
+    case 'happy': case 'love':
+      ctx.beginPath(); ctx.arc(0,-4*s,10*s,0.3,Math.PI-0.3); ctx.stroke(); break;
+    case 'sad': case 'cry':
+      ctx.beginPath(); ctx.arc(0,8*s,8*s,Math.PI+0.3,-0.3); ctx.stroke(); break;
+    case 'angry':
+      ctx.fillStyle=color; ctx.fillRect(-10*s,-2*s,20*s,5*s);
+      ctx.fillStyle='white';
+      for(let i=0;i<4;i++) ctx.fillRect(-8*s+i*5*s,-1*s,3*s,3*s);
       break;
-    case 'frown':
-      ctx.strokeStyle = '#222';
-      ctx.lineWidth = 3*s;
-      ctx.beginPath();
-      ctx.arc(0, 8*s, 10*s, Math.PI + 0.3, -0.3);
-      ctx.stroke();
-      break;
-    case 'led':
-      ctx.fillStyle = char.accent || '#00ff88';
-      ctx.shadowColor = char.accent || '#00ff88';
-      ctx.shadowBlur = 4*s;
-      for (let i = 0; i < 5; i++) {
-        ctx.fillRect(-12*s + i*6*s, 0, 4*s, 3*s);
-      }
-      ctx.shadowBlur = 0;
-      break;
-    case 'hidden':
-      break;
+    case 'surprised':
+      ctx.fillStyle=color; ctx.beginPath(); ctx.arc(0,0,6*s,0,Math.PI*2); ctx.fill(); break;
+    case 'thinking':
+      ctx.beginPath(); ctx.moveTo(-8*s,0); ctx.bezierCurveTo(-4*s,-4*s,4*s,4*s,8*s,0); ctx.stroke(); break;
+    case 'dizzy':
+      ctx.beginPath(); ctx.arc(0,3*s,6*s,0,Math.PI); ctx.stroke(); break;
     default:
-      ctx.strokeStyle = '#222';
-      ctx.lineWidth = 2*s;
-      ctx.beginPath();
-      ctx.moveTo(-10*s, 0);
-      ctx.lineTo(10*s, 0);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-10*s,0); ctx.lineTo(10*s,0); ctx.stroke();
   }
   ctx.restore();
 }
 
+// ── 머리카락 그리기 ──
+function drawHair(ctx, type, r, color, oc, s) {
+  ctx.fillStyle = color;
+  switch(type) {
+    case 'cap':
+      ctx.beginPath(); ctx.arc(0,0,r,Math.PI,0); ctx.fill();
+      ctx.strokeStyle=oc; ctx.lineWidth=2*s;
+      ctx.beginPath(); ctx.arc(0,0,r,Math.PI+0.3,-0.3); ctx.stroke();
+      break;
+    case 'short':
+      ctx.beginPath(); ctx.arc(0,-3*s,r-2*s,Math.PI+0.4,-0.4); ctx.fill(); break;
+    case 'long':
+      ctx.beginPath(); ctx.arc(0,-5*s,r,Math.PI+0.2,-0.2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(-r+5*s,12*s,11*s,40*s,-0.1,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(r-5*s,12*s,11*s,40*s,0.1,0,Math.PI*2); ctx.fill();
+      break;
+    case 'spiky':
+      for(let i=-3;i<=3;i++){
+        const a=Math.PI+(i*0.3); const sx=Math.cos(a)*r*0.8; const sy=Math.sin(a)*r*0.8;
+        ctx.beginPath(); ctx.moveTo(sx-7*s,sy); ctx.lineTo(sx,sy-18*s); ctx.lineTo(sx+7*s,sy); ctx.fill();
+      } break;
+    case 'bowl':
+      ctx.beginPath(); ctx.arc(0,-5*s,r+2*s,Math.PI+0.1,-0.1); ctx.fill();
+      ctx.fillRect(-r*0.8,-r*0.35,r*1.6,10*s); break;
+    case 'curly':
+      for(let i=-2;i<=2;i++){
+        ctx.beginPath(); ctx.arc(i*r*0.35,-r*0.6,r*0.25,0,Math.PI*2); ctx.fill();
+      }
+      ctx.beginPath(); ctx.arc(-r*0.85,0,r*0.22,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(r*0.85,0,r*0.22,0,Math.PI*2); ctx.fill();
+      break;
+    case 'ponytail':
+      ctx.beginPath(); ctx.arc(0,-5*s,r,Math.PI+0.3,-0.3); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(r*0.7,-r*0.2,8*s,35*s,0.3,0,Math.PI*2); ctx.fill();
+      break;
+    case 'mohawk':
+      for(let i=-2;i<=2;i++){
+        ctx.beginPath();
+        ctx.moveTo(i*8*s-5*s,-r*0.5);
+        ctx.lineTo(i*8*s,-r-15*s);
+        ctx.lineTo(i*8*s+5*s,-r*0.5);
+        ctx.fill();
+      } break;
+    case 'bald-side':
+      ctx.beginPath(); ctx.arc(0,0,r,Math.PI+0.8,Math.PI+0.2,true); ctx.fill();
+      ctx.beginPath(); ctx.arc(0,0,r,-0.2,-0.8,true); ctx.fill();
+      break;
+    case 'twintail':
+      ctx.beginPath(); ctx.arc(0,-5*s,r,Math.PI+0.2,-0.2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(-r-3*s,-r*0.3,10*s,35*s,-0.15,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(r+3*s,-r*0.3,10*s,35*s,0.15,0,Math.PI*2); ctx.fill();
+      break;
+    case 'afro':
+      ctx.beginPath(); ctx.arc(0,-5*s,r+15*s,0,Math.PI*2); ctx.fill(); break;
+  }
+}
+
+// ── 모자 그리기 ──
+function drawHat(ctx, type, r, color, oc, s) {
+  switch(type) {
+    case 'cap':
+      ctx.fillStyle=color;
+      ctx.beginPath(); ctx.arc(0,-r*0.2,r+2*s,Math.PI,0); ctx.fill();
+      ctx.fillRect(-r*1.2,-r*0.2,r*0.8,6*s);
+      break;
+    case 'tophat':
+      ctx.fillStyle=color;
+      ctx.fillRect(-22*s,-r-32*s,44*s,32*s);
+      ctx.fillRect(-32*s,-r-4*s,64*s,8*s);
+      ctx.fillStyle='#e74c3c'; ctx.fillRect(-22*s,-r-12*s,44*s,5*s);
+      break;
+    case 'chef':
+      ctx.fillStyle='#fff'; ctx.strokeStyle='#ddd'; ctx.lineWidth=2*s;
+      ctx.beginPath(); ctx.ellipse(0,-r-12*s,28*s,18*s,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(-14*s,-r-8*s,16*s,16*s,0,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(14*s,-r-8*s,16*s,16*s,0,0,Math.PI*2); ctx.fill();
+      ctx.fillRect(-26*s,-r,52*s,7*s); ctx.strokeRect(-26*s,-r,52*s,7*s);
+      break;
+    case 'crown':
+      ctx.fillStyle='#f1c40f'; ctx.strokeStyle='#e67e22'; ctx.lineWidth=2*s;
+      ctx.beginPath();
+      ctx.moveTo(-22*s,-r); ctx.lineTo(-22*s,-r-20*s); ctx.lineTo(-12*s,-r-10*s);
+      ctx.lineTo(0,-r-25*s); ctx.lineTo(12*s,-r-10*s); ctx.lineTo(22*s,-r-20*s);
+      ctx.lineTo(22*s,-r); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#e74c3c';
+      ctx.beginPath(); ctx.arc(0,-r-10*s,3*s,0,Math.PI*2); ctx.fill();
+      break;
+    case 'helmet':
+      ctx.fillStyle=color; ctx.strokeStyle=oc; ctx.lineWidth=2*s;
+      ctx.beginPath(); ctx.arc(0,-5*s,r+5*s,Math.PI,0); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#ffffff30';
+      ctx.beginPath(); ctx.arc(0,-5*s,r+5*s,Math.PI+0.3,Math.PI+1); ctx.fill();
+      break;
+    case 'beret':
+      ctx.fillStyle=color;
+      ctx.beginPath(); ctx.ellipse(-5*s,-r+2*s,r*0.8,12*s,-0.1,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-r*0.3,-r-5*s,4*s,0,Math.PI*2); ctx.fill();
+      break;
+    case 'santa':
+      ctx.fillStyle='#e74c3c';
+      ctx.beginPath(); ctx.arc(0,-5*s,r+2*s,Math.PI,0); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(0,-r); ctx.quadraticCurveTo(r*0.5,-r-30*s,r+10*s,-r-5*s); ctx.lineTo(r,-r+5*s);
+      ctx.fill();
+      ctx.fillStyle='white';
+      ctx.fillRect(-r-3*s,-r+2*s,r*2+6*s,8*s);
+      ctx.beginPath(); ctx.arc(r+10*s,-r-5*s,6*s,0,Math.PI*2); ctx.fill();
+      break;
+    case 'wizard':
+      ctx.fillStyle=color; ctx.strokeStyle=oc; ctx.lineWidth=2*s;
+      ctx.beginPath();
+      ctx.moveTo(-30*s,-r+2*s); ctx.lineTo(0,-r-45*s); ctx.lineTo(30*s,-r+2*s);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#f1c40f';
+      ctx.beginPath(); ctx.arc(0,-r-18*s,5*s,0,Math.PI*2); ctx.fill();
+      ctx.fillRect(-30*s,-r+2*s,60*s,6*s);
+      break;
+    case 'ribbon':
+      ctx.fillStyle='#ff4757';
+      ctx.beginPath();
+      ctx.moveTo(r*0.5,-r*0.6); ctx.lineTo(r*0.5+14*s,-r*0.6-10*s);
+      ctx.lineTo(r*0.5+5*s,-r*0.6); ctx.lineTo(r*0.5+14*s,-r*0.6+10*s);
+      ctx.closePath(); ctx.fill();
+      break;
+    case 'headband':
+      ctx.strokeStyle='#e74c3c'; ctx.lineWidth=5*s;
+      ctx.beginPath(); ctx.arc(0,0,r+2*s,Math.PI+0.5,-0.5); ctx.stroke();
+      break;
+    case 'halo':
+      ctx.strokeStyle='#f1c40f'; ctx.lineWidth=3*s;
+      ctx.beginPath(); ctx.ellipse(0,-r-10*s,20*s,6*s,0,0,Math.PI*2); ctx.stroke();
+      break;
+  }
+}
+
+// ── 얼굴 장식 ──
+function drawFaceDecor(ctx, type, eyeY, r, s, oc) {
+  switch(type) {
+    case 'mustache':
+      ctx.fillStyle='#555';
+      ctx.beginPath(); ctx.ellipse(-8*s,eyeY+r*0.28,10*s,4*s,-0.2,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(8*s,eyeY+r*0.28,10*s,4*s,0.2,0,Math.PI*2); ctx.fill();
+      break;
+    case 'beard':
+      ctx.fillStyle='#555';
+      ctx.beginPath(); ctx.ellipse(0,r*0.55,15*s,18*s,0,0,Math.PI*2); ctx.fill();
+      break;
+    case 'blush':
+      ctx.fillStyle='rgba(255,150,170,0.35)';
+      ctx.beginPath(); ctx.ellipse(-r*0.5,eyeY+r*0.2,8*s,5*s,0,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(r*0.5,eyeY+r*0.2,8*s,5*s,0,0,Math.PI*2); ctx.fill();
+      break;
+    case 'freckles':
+      ctx.fillStyle='#c0956e';
+      [[-r*0.35,eyeY+r*0.15],[-r*0.25,eyeY+r*0.25],[-r*0.4,eyeY+r*0.28],
+       [r*0.35,eyeY+r*0.15],[r*0.25,eyeY+r*0.25],[r*0.4,eyeY+r*0.28]].forEach(([x,y])=>{
+        ctx.beginPath(); ctx.arc(x,y,2*s,0,Math.PI*2); ctx.fill();
+      }); break;
+    case 'scar':
+      ctx.strokeStyle='#d4a'; ctx.lineWidth=2*s;
+      ctx.beginPath(); ctx.moveTo(r*0.2,eyeY-r*0.3); ctx.lineTo(r*0.35,eyeY+r*0.1); ctx.stroke();
+      break;
+    case 'mask':
+      ctx.fillStyle='#eee'; ctx.strokeStyle='#ccc'; ctx.lineWidth=1.5*s;
+      ctx.beginPath();
+      ctx.moveTo(-r*0.5,eyeY+r*0.15); ctx.quadraticCurveTo(0,eyeY+r*0.7,r*0.5,eyeY+r*0.15);
+      ctx.lineTo(r*0.5,eyeY+r*0.45); ctx.quadraticCurveTo(0,eyeY+r*0.8,-r*0.5,eyeY+r*0.45);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      break;
+    case 'bandaid':
+      ctx.fillStyle='#f5d6ba'; ctx.strokeStyle='#d4a'; ctx.lineWidth=1*s;
+      ctx.save(); ctx.translate(r*0.3,eyeY-r*0.1); ctx.rotate(0.3);
+      ctx.beginPath(); ctx.roundRect(-10*s,-4*s,20*s,8*s,2*s); ctx.fill(); ctx.stroke();
+      ctx.restore();
+      break;
+  }
+}
+
+// ── 표정 이펙트 ──
+function drawExprEffect(ctx, expr, r, s, t) {
+  if (expr === 'love') {
+    ctx.fillStyle='#e74c3c';
+    const hy=-r-15*s+Math.sin(t*3)*5*s;
+    ctx.font=`${16*s}px serif`;
+    ctx.textAlign='center';
+    ctx.fillText('♥',r*0.6,hy);
+    ctx.fillText('♥',-r*0.6,hy-5*s);
+  }
+  if (expr === 'thinking') {
+    ctx.fillStyle='#ffffff80';
+    ctx.beginPath(); ctx.arc(r+10*s,-r-5*s,4*s,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(r+18*s,-r-15*s,6*s,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(r+28*s,-r-28*s,8*s,0,Math.PI*2); ctx.fill();
+  }
+  if (expr === 'sleep') {
+    ctx.fillStyle='#9ca3af';
+    ctx.font=`bold ${10*s}px serif`;
+    ctx.textAlign='left';
+    const zy=-r-5*s+Math.sin(t*2)*8*s;
+    ctx.globalAlpha=0.7; ctx.fillText('Z',r+5*s,zy);
+    ctx.font=`bold ${14*s}px serif`; ctx.fillText('Z',r+15*s,zy-12*s);
+    ctx.font=`bold ${18*s}px serif`; ctx.fillText('Z',r+25*s,zy-28*s);
+    ctx.globalAlpha=1;
+  }
+}
+
+// ── 악세서리 그리기 ──
+function drawAccessory(ctx, type, armLen, shoulderY, s, av, oc) {
+  const handX = armLen*0.7;
+  const handY = shoulderY + 5*s + armLen*0.7;
+  switch(type) {
+    case 'sword':
+      ctx.save(); ctx.translate(handX, handY);
+      ctx.rotate(av.rArm*Math.PI/180*0.3);
+      ctx.strokeStyle='#bbb'; ctx.lineWidth=3*s;
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-40*s); ctx.stroke();
+      ctx.strokeStyle='#8B4513'; ctx.lineWidth=6*s;
+      ctx.beginPath(); ctx.moveTo(-6*s,-2*s); ctx.lineTo(6*s,-2*s); ctx.stroke();
+      ctx.restore(); break;
+    case 'shield':
+      ctx.save(); ctx.translate(-handX-5*s, handY-5*s);
+      ctx.fillStyle='#8B4513'; ctx.strokeStyle='#666'; ctx.lineWidth=2*s;
+      ctx.beginPath();
+      ctx.moveTo(0,-15*s); ctx.lineTo(15*s,-5*s); ctx.lineTo(15*s,10*s);
+      ctx.lineTo(0,20*s); ctx.lineTo(-15*s,10*s); ctx.lineTo(-15*s,-5*s);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#c0392b'; ctx.beginPath(); ctx.arc(0,3*s,6*s,0,Math.PI*2); ctx.fill();
+      ctx.restore(); break;
+    case 'book':
+      ctx.save(); ctx.translate(-handX, handY);
+      ctx.fillStyle='#3498db'; ctx.fillRect(-10*s,-8*s,20*s,16*s);
+      ctx.fillStyle='#fff'; ctx.fillRect(-8*s,-6*s,16*s,12*s);
+      ctx.restore(); break;
+    case 'wand':
+      ctx.save(); ctx.translate(handX, handY);
+      ctx.strokeStyle='#8B4513'; ctx.lineWidth=3*s;
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(5*s,-35*s); ctx.stroke();
+      ctx.fillStyle='#f1c40f';
+      ctx.font=`${12*s}px serif`; ctx.fillText('✦',0,-38*s);
+      ctx.restore(); break;
+    case 'guitar':
+      ctx.save(); ctx.translate(0, shoulderY+20*s);
+      ctx.fillStyle='#8B4513';
+      ctx.beginPath(); ctx.ellipse(0,20*s,12*s,16*s,0,0,Math.PI*2); ctx.fill();
+      ctx.fillRect(-2*s,-10*s,4*s,30*s);
+      ctx.restore(); break;
+    case 'mic':
+      ctx.save(); ctx.translate(handX, handY);
+      ctx.strokeStyle='#555'; ctx.lineWidth=3*s;
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-20*s); ctx.stroke();
+      ctx.fillStyle='#888';
+      ctx.beginPath(); ctx.arc(0,-23*s,6*s,0,Math.PI*2); ctx.fill();
+      ctx.restore(); break;
+    case 'balloon':
+      ctx.save(); ctx.translate(handX, handY);
+      ctx.strokeStyle='#ccc'; ctx.lineWidth=1*s;
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.quadraticCurveTo(5*s,-30*s,0,-50*s); ctx.stroke();
+      ctx.fillStyle='#e74c3c';
+      ctx.beginPath(); ctx.ellipse(0,-62*s,12*s,15*s,0,0,Math.PI*2); ctx.fill();
+      ctx.restore(); break;
+    case 'umbrella':
+      ctx.save(); ctx.translate(handX, handY);
+      ctx.strokeStyle='#555'; ctx.lineWidth=3*s;
+      ctx.beginPath(); ctx.moveTo(0,5*s); ctx.lineTo(0,-35*s); ctx.stroke();
+      ctx.fillStyle='#e74c3c';
+      ctx.beginPath(); ctx.arc(0,-35*s,20*s,Math.PI,0); ctx.fill();
+      ctx.restore(); break;
+    case 'cane':
+      ctx.save(); ctx.translate(handX+5*s, handY);
+      ctx.strokeStyle='#8B4513'; ctx.lineWidth=4*s; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,40*s); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0,0,6*s,0,Math.PI); ctx.stroke();
+      ctx.restore(); break;
+    case 'phone':
+      ctx.save(); ctx.translate(handX, handY-5*s);
+      ctx.fillStyle='#333'; ctx.beginPath(); ctx.roundRect(-6*s,-10*s,12*s,18*s,2*s); ctx.fill();
+      ctx.fillStyle='#4a90d9'; ctx.fillRect(-4*s,-7*s,8*s,12*s);
+      ctx.restore(); break;
+    case 'flag':
+      ctx.save(); ctx.translate(handX, handY);
+      ctx.strokeStyle='#888'; ctx.lineWidth=2*s;
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-40*s); ctx.stroke();
+      ctx.fillStyle='#e74c3c';
+      ctx.fillRect(1*s,-40*s,20*s,14*s);
+      ctx.restore(); break;
+    case 'flower':
+      ctx.save(); ctx.translate(handX, handY);
+      ctx.strokeStyle='#2ecc71'; ctx.lineWidth=2*s;
+      ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-20*s); ctx.stroke();
+      ctx.fillStyle='#ff6b8a';
+      for(let i=0;i<5;i++){
+        const a=i*Math.PI*2/5-Math.PI/2;
+        ctx.beginPath(); ctx.arc(Math.cos(a)*6*s,-20*s+Math.sin(a)*6*s,4*s,0,Math.PI*2); ctx.fill();
+      }
+      ctx.fillStyle='#f1c40f'; ctx.beginPath(); ctx.arc(0,-20*s,3*s,0,Math.PI*2); ctx.fill();
+      ctx.restore(); break;
+    case 'bag':
+      ctx.save(); ctx.translate(-15*s, shoulderY+10*s);
+      ctx.fillStyle='#8B4513'; ctx.strokeStyle='#654321'; ctx.lineWidth=1.5*s;
+      ctx.beginPath(); ctx.roundRect(-10*s,0,20*s,25*s,3*s); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle='#654321'; ctx.lineWidth=2*s;
+      ctx.beginPath(); ctx.arc(0,-3*s,8*s,Math.PI,0); ctx.stroke();
+      ctx.restore(); break;
+  }
+}
+
 // ═══════════════════════════════════════════════
-// 그리드 렌더링 (캐릭터 10종 카드)
+// 초기화
 // ═══════════════════════════════════════════════
-const grid = document.getElementById('charGrid');
-CHARS.forEach((ch, i) => {
-  const card = document.createElement('div');
-  card.className = 'char-card' + (i === 0 ? ' active' : '');
-  card.innerHTML = `<canvas id="thumb_${ch.id}" width="200" height="200"></canvas><h3>${ch.name}</h3><p>${ch.desc}</p>`;
-  card.onclick = () => selectChar(ch, card);
-  grid.appendChild(card);
-});
-
-function selectChar(ch, card) {
-  selectedChar = ch;
-  document.querySelectorAll('.char-card').forEach(c => c.classList.remove('active'));
-  card.classList.add('active');
-}
-
-// 썸네일 그리기
-function drawThumbnails() {
-  CHARS.forEach(ch => {
-    const canvas = document.getElementById('thumb_' + ch.id);
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, 200, 200);
-    const sc = ch.scale || 1;
-    drawCharacter(ctx, ch, 100, 130, 0.9 * sc, { t: animTime, anim: 'idle', expr: 'normal' });
-  });
-}
-
-// ═══════════════════════════════════════════════
-// 메인 스테이지 애니메이션 루프
-// ═══════════════════════════════════════════════
-const stageCanvas = document.getElementById('stageCanvas');
-const stageCtx = stageCanvas.getContext('2d');
-
-function animate() {
-  animTime += 0.016;
-
-  // 스테이지
-  stageCtx.clearRect(0, 0, 800, 400);
-
-  // 바닥선
-  stageCtx.strokeStyle = '#333';
-  stageCtx.lineWidth = 1;
-  stageCtx.beginPath();
-  stageCtx.moveTo(0, 340);
-  stageCtx.lineTo(800, 340);
-  stageCtx.stroke();
-
-  // 선택된 캐릭터 크게 그리기
-  const sc = (selectedChar.scale || 1) * 1.5;
-  drawCharacter(stageCtx, selectedChar, 400, 280, sc, {
-    t: animTime, anim: currentAnim, expr: currentExpr
-  });
-
-  // 캐릭터 이름
-  stageCtx.fillStyle = selectedChar.accent || '#888';
-  stageCtx.font = 'bold 16px "Segoe UI"';
-  stageCtx.textAlign = 'center';
-  stageCtx.fillText(selectedChar.name, 400, 380);
-
-  // 썸네일 업데이트 (매 10프레임)
-  if (Math.floor(animTime * 60) % 10 === 0) drawThumbnails();
-
-  requestAnimationFrame(animate);
-}
-
-function setAnim(anim) {
-  currentAnim = anim;
-  document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
-}
-
-function setExpr(expr) {
-  currentExpr = expr;
-}
-
-// 시작
-drawThumbnails();
-animate();
+buildOptions();
+buildBgSelector();
+buildAnimBar();
+updateJSON();
+render();
 </script>
 </body>
 </html>
